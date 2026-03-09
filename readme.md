@@ -1,54 +1,208 @@
-# Overview
-Welcome to the DevOps Hackathon Challenge! In this hackathon, you will demonstrate your skills in containerization, Infrastructure as Code (IaC), CI/CD, and cloud deployment using Azure / GCP services. You will be working with a simple healthcare application consisting of two microservices.
+# Healthcare Microservices on GKE
 
-# Common Requirements
-Regardless of the track you choose, you will be working with the following common elements:
+A complete end-to-end solution for deploying containerized microservices to Google Kubernetes Engine (GKE) with Infrastructure as Code, CI/CD pipelines, and monitoring.
 
-## Microservices: 
-You will be provided with two Node.js microservices - a Patient Service and an Appointment Service or Java based Microservice (order-service).
-The code for these services can be found in the Sample Microservices Code file.
+## 🏗️ Architecture
 
-Order-service Java microservice.
+This project demonstrates a production-ready microservices architecture on GCP:
 
-## What we are looking for
-### CI Pipeline
-1. Build microservices on local
-2. Docker build microservice
-3. Create Kubernetes YAML files. (Internal - helm charts)
-3. Push to GCR / ACR / ECR
-### CD Deployment
-1. Pull from GCR / ACR / ECR
-2. Deploy on GKE / AKS / EKS
+- **3 Microservices**: Patient Service, Application Service, Order Service
+- **Infrastructure as Code**: Terraform modules for VPC, GKE, IAM
+- **Container Registry**: Google Artifact Registry
+- **Orchestration**: Kubernetes on GKE
+- **CI/CD**: GitHub Actions workflows
+- **Monitoring**: Cloud Logging, Cloud Monitoring, Prometheus (optional)
 
-### Secrets
-1. Azure KeyVault / AWS Secret Manager
+## 📋 Services
 
-For Containternization use Docker, Terraform for IaC, Github Action / Azure DevOps for CI/CD pipelines.
+### Patient Service (Node.js)
+- Port: 3000
+- Endpoints: `/health`, `/patients`, `/patients/:id`
+- Manages patient records
 
-### Monitoring and Logging: 
-Set up basic monitoring and logging using Azure Monitor and other services / GCP / AWS Services.
+### Application Service (Node.js)
+- Port: 3001
+- Endpoints: `/health`, `/appointments`, `/appointments/:id`
+- Manages appointment scheduling
 
-### Containerization: 
-You need to containerize these microservices using Docker.
+### Order Service (Java Spring Boot)
+- Port: 8080
+- Endpoints: `/actuator/health`, `/orders`
+- Manages order processing
 
-### Infrastructure as Code (Terraform):
+## 🚀 Quick Start
 
-Set up a Terraform project structure supporting multiple environments (dev, staging, prod).
-Provision the following in Azure / GCP / AWS resources:
-VPC with public and private subnets across two availability zones
-IAM roles and security groups
-Storage for Terraform state storage
-State locking
-(Other resources specific to your chosen track)
-Terraform State Management:
+### Prerequisites
+- GCP account with billing enabled
+- gcloud CLI installed
+- Terraform >= 1.6.0
+- kubectl installed
+- Docker installed
 
-Implement remote state storage using Blob Storage / GCP Files / AWS S3
-Set up state locking
-Configure workspace separation for different environments
+### 1. Clone and Setup
 
-### GitHub Actions / Azure DevOps for IaC:
-Create workflows for:
-1. CI/CD: Implement a CI/CD pipeline using GitHub Actions for your application code.
-2. Terraform fmt and validate on all PRs
-3. Terraform plan on pull requests
-4. Terraform apply on merges to main branch
+```bash
+git clone <your-repo>
+cd hackathon-usecase
+
+# Run setup script (Linux/Mac)
+chmod +x setup.sh
+./setup.sh
+```
+
+### 2. Deploy Infrastructure
+
+```bash
+cd terraform/environments/dev
+terraform init
+terraform plan
+terraform apply
+```
+
+### 3. Build and Deploy
+
+```bash
+# Get cluster credentials
+gcloud container clusters get-credentials microservices-cluster \
+    --region us-central1 \
+    --project YOUR_PROJECT_ID
+
+# Build and push images
+./build-and-push.sh
+
+# Deploy to GKE
+kubectl apply -f k8s/
+```
+
+## 📁 Project Structure
+
+```
+.
+├── .github/workflows/       # CI/CD pipelines
+│   ├── terraform.yml        # Terraform automation
+│   ├── docker-build.yml     # Docker image builds
+│   └── deploy-gke.yml       # GKE deployment
+├── terraform/               # Infrastructure as Code
+│   ├── modules/             # Reusable Terraform modules
+│   │   ├── vpc/            # VPC networking
+│   │   ├── gke/            # GKE cluster
+│   │   └── iam/            # IAM roles
+│   └── environments/
+│       └── dev/            # Dev environment config
+├── k8s/                    # Kubernetes manifests
+│   ├── patient-service.yaml
+│   ├── application-service.yaml
+│   ├── order-service.yaml
+│   └── ingress.yaml
+├── patient-service/        # Patient microservice
+├── application-service/    # Appointment microservice
+├── order-service/          # Order microservice
+├── DEPLOYMENT_GUIDE.md     # Detailed deployment guide
+└── ARCHITECTURE.md         # Architecture documentation
+```
+
+## 🔄 CI/CD Pipeline
+
+### Terraform Workflow
+- **On PR**: Format check, validate, plan
+- **On merge**: Apply changes automatically
+
+### Docker Build Workflow
+- Builds all three services
+- Pushes to Artifact Registry
+- Tags with commit SHA and latest
+
+### GKE Deploy Workflow
+- Deploys to GKE cluster
+- Verifies deployment status
+- Updates running services
+
+## 📊 Monitoring
+
+### Cloud Logging
+```bash
+# View logs
+gcloud logging read "resource.type=k8s_container" --limit 50
+```
+
+### Cloud Monitoring
+- Navigate to GCP Console > Kubernetes Engine > Workloads
+- View metrics, CPU, memory usage
+
+### Prometheus & Grafana (Optional)
+```bash
+# Install monitoring stack
+kubectl create namespace monitoring
+helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring
+
+# Access Grafana
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+```
+
+## 🧪 Testing
+
+```bash
+# Get Ingress IP
+INGRESS_IP=$(kubectl get ingress microservices-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+# Test endpoints
+curl http://$INGRESS_IP/patients
+curl http://$INGRESS_IP/appointments
+curl http://$INGRESS_IP/orders
+```
+
+## 🔐 Security
+
+- Private GKE nodes in private subnet
+- Workload Identity for pod authentication
+- IAM roles with least privilege
+- Secrets stored in Google Secret Manager
+- Network policies for pod isolation
+
+## 📚 Documentation
+
+- [Deployment Guide](DEPLOYMENT_GUIDE.md) - Step-by-step deployment instructions
+- [Architecture](ARCHITECTURE.md) - Detailed architecture diagrams and explanations
+
+## 🛠️ Troubleshooting
+
+### Pods not starting
+```bash
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+```
+
+### Ingress not getting IP
+Wait 5-10 minutes for GCP to provision the load balancer
+
+### Image pull errors
+```bash
+gcloud artifacts repositories describe microservices-repo --location=us-central1
+```
+
+## 🧹 Cleanup
+
+```bash
+# Delete Kubernetes resources
+kubectl delete -f k8s/
+
+# Destroy infrastructure
+cd terraform/environments/dev
+terraform destroy
+```
+
+## 📝 License
+
+This project is for educational purposes as part of the DevOps Hackathon Challenge.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## 📧 Support
+
+For issues and questions, please open an issue in the GitHub repository.

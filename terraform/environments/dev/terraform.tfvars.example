@@ -1,0 +1,4 @@
+project_id   = "your-gcp-project-id"
+region       = "us-central1"
+network_name = "gke-vpc"
+cluster_name = "microservices-cluster"
